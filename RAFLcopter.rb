@@ -9,7 +9,6 @@
 
 require 'RAFL_wav.rb'
 require 'benchmark'
-#require 'FileTest'
 
 $quit = false
 
