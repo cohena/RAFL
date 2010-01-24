@@ -4,20 +4,22 @@
 # RAFLcopter.rb by Aaron Cohen
 #
 # A friendly demonstration front end for RAFL - Ruby Audio File Library
-# TODO: Support different audio generation per channel
+# 
 #
 
 require 'RAFL_wav.rb'
 require 'benchmark'
+#require 'FileTest'
 
 $quit = false
 
 def read_wav
   userfile = ""
-  until File.exist?(userfile)
+  until File.file?(userfile)
     puts ""
     puts "Enter the path to a wav file:"
-    userfile = gets.chomp.strip
+    userfile = gets.strip.chomp.gsub("\\ ", " ")
+    puts userfile
   end
   
   inputfile = RiffFile.new(userfile, 'r')
@@ -28,6 +30,17 @@ def read_wav
   puts "Bit Depth: #{inputfile.format.bit_depth}"
   puts "Sample Rate: #{inputfile.format.sample_rate} Hz"
   puts "Number of channels: #{inputfile.format.num_channels}"
+  puts ""
+  if inputfile.bext_meta != nil
+    puts "Broadcast Wav Metadata:"
+    puts "\tDescription: #{inputfile.bext_meta.description}"
+    puts "\tCreator: #{inputfile.bext_meta.originator}"
+    puts "\tCreator Reference: #{inputfile.bext_meta.originator_reference}"
+    puts "\tCreation Date: #{inputfile.bext_meta.origination_date}"
+    puts "\tCreation Time: #{inputfile.bext_meta.origination_time}"
+    puts "\tTime location: #{inputfile.bext_meta.calc_time_offset(inputfile.format.sample_rate)}"
+    puts "\tMetadata version: #{inputfile.bext_meta.version}"
+  end
   puts ""
   puts "Reading sample data..."
   puts ""

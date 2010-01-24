@@ -20,7 +20,7 @@ class RiffFile
   AUDIO_PACK_FORMAT_16 = "s*"
   AUDIO_PACK_FORMAT_24 = "c3"
   
-  attr_accessor :format, :raw_audio_data
+  attr_accessor :format, :bext_meta, :raw_audio_data
   
   def initialize(file, mode)
     @file = File.open(file, mode)
@@ -63,6 +63,7 @@ class RiffFile
   def identify_chunk(chunk_name, chunk_position, chunk_length)
     case chunk_name
       when 'fmt' then process_fmt_chunk(chunk_position, chunk_length)
+      when 'bext' then process_bext_chunk(chunk_position, chunk_length)
       when 'data' then process_data_chunk(chunk_position, chunk_length)
     end
   end
@@ -70,6 +71,11 @@ class RiffFile
   def process_fmt_chunk(chunk_position, chunk_length)
     @file.seek(chunk_position)
     @format = WaveFmtChunk.new(@file.read(chunk_length))
+  end
+  
+  def process_bext_chunk(chunk_position, chunk_length)
+    @file.seek(chunk_position)
+    @bext_meta = BextChunk.new(@file.read(chunk_length))
   end
   
   def process_data_chunk(chunk_position, chunk_length)
@@ -200,6 +206,29 @@ class WaveFmtChunk
   end
     
 end
+
+class BextChunk
+  
+  attr_accessor :description, :originator, :originator_reference, :origination_date, :origination_time,
+                :time_reference, :version, :umid, :reserved, :coding_history
+  
+  PACK_FMT = "A256A32A32A10A8QvB64B190A*"
+  
+  def initialize(*binary_data)
+    unpack_bext_data(binary_data[0]) if !binary_data.empty?
+  end
+  
+  def unpack_bext_data(binary_data)
+    @description, @originator, @originator_reference, @origination_date, @origination_time,
+    @time_reference, @version, @umid, @reserved, @coding_history = binary_data.unpack(PACK_FMT)
+  end
+  
+  def calc_time_offset(sample_rate)
+    time = @time_reference / sample_rate
+    return [time/3600, time/60 % 60, time % 60].map{|t| t.to_s.rjust(2,'0')}.join(':')
+  end
+end
+
 
 #####################
 # Standalone methods
