@@ -1,9 +1,8 @@
 RAFL is a Ruby Audio File Library, written by Aaron Cohen (c) 2009. Distributed under the LGPL license.
 
-To get a sense of its capabilities, run RAFLcopter.rb. Only WAV files are currently supported (any number of channels, including surround). BWAV metadata is now supported.
+To get a sense of its capabilities, run RAFLcopter.rb. Only WAV files are currently supported (any number of channels, including surround). BWAV metadata is now supported, as are 24 bit audio files.
 
 Current limitations are:
 
 A serious lack of documentation
-Only 16 bit audio is supported
 Performance needs optimization. Run on Ruby 1.9 for best results.

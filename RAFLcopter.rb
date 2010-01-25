@@ -18,7 +18,6 @@ def read_wav
     puts ""
     puts "Enter the path to a wav file:"
     userfile = gets.strip.chomp.gsub("\\ ", " ")
-    puts userfile
   end
   
   inputfile = RiffFile.new(userfile, 'r')
@@ -109,8 +108,8 @@ def write_wav
   sample_rate = gets.chomp.strip.to_i
   
   puts ""
-  puts "Bit Depth forced to 16, for now."
-  bit_depth = 16
+  puts "Enter Bit Depth (16 or 24)"
+  bit_depth = gets.chomp.strip.to_i
   
   puts ""
   puts "How many seconds long should the audio file be?"

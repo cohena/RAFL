@@ -10,15 +10,15 @@
 #
 #
 # TODO:
-# Fix 24 bit wave files...they use 3 bytes per sample instead of 2
-# Better handling of multichannel files
+# Fix Sine Wave Generator - experiencing significant rounding error
+# BEXT writing
+# Fix Peak & RMS calculation on 24 bit audio
 
 class RiffFile
   
   VALID_RIFF_TYPES = [ 'WAVE' ]
   HEADER_PACK_FORMAT = "A4V"
   AUDIO_PACK_FORMAT_16 = "s*"
-  AUDIO_PACK_FORMAT_24 = "c3"
   
   attr_accessor :format, :bext_meta, :raw_audio_data
   
@@ -87,6 +87,23 @@ class RiffFile
     #end
   end
   
+  def unpack_samples(samples, bit_depth)
+    if bit_depth == 24
+      #return samples.scan(/.../).map {|s| (s.reverse + 0.chr ).unpack("V")}.flatten
+      return samples.scan(/.../).map {|s| (s + 0.chr).unpack("V")}.flatten
+    else
+      return samples.unpack(AUDIO_PACK_FORMAT_16)
+    end
+  end
+  
+  def pack_samples(samples, bit_depth)
+    if bit_depth == 24
+      return samples.map { |s| [s].pack("VX") }.join
+    else
+      return samples.pack(AUDIO_PACK_FORMAT_16)
+    end
+  end
+  
   def read_sample(sample_number, channel) #returns an individual sample value
 
     @file.seek(@data_begin + (sample_number * @format.block_align) + (channel * (@format.block_align / @format.num_channels)))
@@ -98,7 +115,8 @@ class RiffFile
   
   def simple_read #returns all sample values for entire file
     @file.seek(@data_begin)
-    @file.read(@data_end - @data_begin).unpack('s*')#.join.to_i
+    #@file.read(@data_end - @data_begin).unpack(@audio_pack_format)#.join.to_i
+    unpack_samples(@file.read(@data_end - @data_begin), @format.bit_depth)
   end
   
   def read_samples_by_channel(channel) #returns all of the sample values for a single audio channel
@@ -106,7 +124,8 @@ class RiffFile
     for sample in (0..total_samples)
       samples << read_sample(sample, channel)
     end
-    samples.collect! { |samp| sample.unpack('s*').join.to_i }
+    #samples.collect! { |samp| sample.unpack(@audio_pack_format).join.to_i } #bug, should be samp.unpack?
+    samples.collect! { |samp| unpack_samples(samp, @format.bit_depth).join.to_i }
     return samples
   end
   
@@ -135,7 +154,7 @@ class RiffFile
     @write_format.bit_depth = bit_depth
     @write_format.set_sample_rate(sample_rate)
     
-    @file.print(["fmt ", 16].pack("A4V"))
+    @file.print(["fmt ", 16].pack(HEADER_PACK_FORMAT)) # the 16 here means PCM, not bit depth
     @file.print(@write_format.pack_header_data)
   end
   
@@ -151,11 +170,18 @@ class RiffFile
       interleaved_audio_data = audio_data[0]
     end
     
-    @file.print(interleaved_audio_data.pack("s*"))
+    puts interleaved_audio_data.length
+    interleaved_audio_data.each_index do |sample|
+      if interleaved_audio_data[sample].nil?
+        puts "Sample number #{sample.to_s} is nil"
+      end
+    end
+    
+    @file.print(pack_samples(interleaved_audio_data, @write_format.bit_depth))
     @data_end = @file.tell
     @file_end = @file.tell
     @file.seek(data_chunk_begin)
-    @file.print(["data", @data_end - @data_begin].pack("A4V"))
+    @file.print(["data", @data_end - @data_begin].pack(HEADER_PACK_FORMAT))
   end
   
   def duration
@@ -299,7 +325,7 @@ def generate_pink_noise(length_secs, peak_db, sample_rate, bit_depth)
   return output
 end
 
-def generate_sine_wave(length_secs, peak_db, freq, sample_rate, bit_depth)
+def generate_sine_wave(length_secs, peak_db, freq, sample_rate, bit_depth) #defective...drifts over time - rounding error?
   peak_samples = calc_sample_value(peak_db, bit_depth)
   output = []
   period = 1.0 / freq
@@ -310,7 +336,7 @@ def generate_sine_wave(length_secs, peak_db, freq, sample_rate, bit_depth)
     output << (Math.sin(angular_freq * time) * peak_samples).round_to(0).to_i
     time += (1.0 / sample_rate)
   end
-  return output
+  return output.slice(0..-2) #kludge...need to pick this apart to find extra sample
 end
 
 
