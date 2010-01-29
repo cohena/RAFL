@@ -14,13 +14,16 @@
 # BEXT writing
 # Fix Peak & RMS calculation on 24 bit audio
 
+require 'rexml/document'
+include REXML
+
 class RiffFile
   
   VALID_RIFF_TYPES = [ 'WAVE' ]
   HEADER_PACK_FORMAT = "A4V"
   AUDIO_PACK_FORMAT_16 = "s*"
   
-  attr_accessor :format, :bext_meta, :raw_audio_data
+  attr_accessor :format, :bext_meta, :ixml_meta, :raw_audio_data
   
   def initialize(file, mode)
     @file = File.open(file, mode)
@@ -61,10 +64,12 @@ class RiffFile
   end
   
   def identify_chunk(chunk_name, chunk_position, chunk_length)
+    puts "Found chunk: #{chunk_name}"
     case chunk_name
       when 'fmt' then process_fmt_chunk(chunk_position, chunk_length)
       when 'bext' then process_bext_chunk(chunk_position, chunk_length)
       when 'data' then process_data_chunk(chunk_position, chunk_length)
+      when 'iXML' then process_ixml_chunk(chunk_position, chunk_length)
     end
   end
   
@@ -85,6 +90,12 @@ class RiffFile
     #for sample in (0..total_samples)
     #  @raw_audio_data << read_sample(sample)
     #end
+  end
+  
+  def process_ixml_chunk(chunk_position, chunk_length)
+    puts "Found iXML chunk"
+    @file.seek(chunk_position)
+    @ixml_meta = IxmlChunk.new(@file.read(chunk_length))
   end
   
   def unpack_samples(samples, bit_depth)
@@ -252,6 +263,20 @@ class BextChunk
   def calc_time_offset(sample_rate)
     time = @time_reference / sample_rate
     return [time/3600, time/60 % 60, time % 60].map{|t| t.to_s.rjust(2,'0')}.join(':')
+  end
+end
+
+class IxmlChunk
+  
+  PACK_FMT = "a*"
+  
+  def initialize(*binary_data)
+    unpack_ixml_data(binary_data[0]) if !binary_data.empty?
+  end
+  
+  def unpack_ixml_data(binary_data)
+    @xml = Document.new(binary_data.unpack(PACK_FMT))
+    puts @xml
   end
 end
 
