@@ -51,7 +51,9 @@ class RiffFile
   end
   
   def read_chunks
+    @found_chunks = []
     while @file.tell < @file_end
+      @file.seek(@file.tell + @file.tell % 2)  #adds padding if last chunk was an odd length
       chunk_name, chunk_length = read_chunk_header
       chunk_position = @file.tell
       identify_chunk(chunk_name, chunk_position, chunk_length)
@@ -64,7 +66,7 @@ class RiffFile
   end
   
   def identify_chunk(chunk_name, chunk_position, chunk_length)
-    puts "Found chunk: #{chunk_name}"
+    @found_chunks << chunk_name
     case chunk_name
       when 'fmt' then process_fmt_chunk(chunk_position, chunk_length)
       when 'bext' then process_bext_chunk(chunk_position, chunk_length)
@@ -93,7 +95,6 @@ class RiffFile
   end
   
   def process_ixml_chunk(chunk_position, chunk_length)
-    puts "Found iXML chunk"
     @file.seek(chunk_position)
     @ixml_meta = IxmlChunk.new(@file.read(chunk_length))
   end
@@ -249,7 +250,7 @@ class BextChunk
   attr_accessor :description, :originator, :originator_reference, :origination_date, :origination_time,
                 :time_reference, :version, :umid, :reserved, :coding_history
   
-  PACK_FMT = "A256A32A32A10A8QvB64B190A*"
+  PACK_FMT = "A256A32A32A10A8QvB64A190M*"
   
   def initialize(*binary_data)
     unpack_bext_data(binary_data[0]) if !binary_data.empty?
@@ -267,6 +268,30 @@ class BextChunk
 end
 
 class IxmlChunk
+  #see http://www.gallery.co.uk/ixml/object_Details.html
+  
+  attr_accessor :raw_xml#, :ixml_version,
+#                :project, :scene, :take, :tape, :circled, :no_good, :false_start,
+#                :wild_track, :file_uid, :ubits, :note, 
+#                
+#                :sync_point_count, :sync_points,
+#               
+#                :speed_note, :speed_master, :speed_current, :speed_timecode_rate, :speed_timecode_flag,
+#                :speed_file_sample_rate, :speed_bit_depth, :speed_digitizer_sample_rate,
+#                :speed_timestamp_samples_since_midnight, :speed_timestamp_sample_rate,
+#               
+#                :history_original_filename, :history_parent_filename, :history_parent_uid,
+#                
+#                :fileset_total_files, :fileset_family_uid, :fileset_family_name, :fileset_index,
+#                
+#                :tracklist_count, :tracklist_tracks,
+#                
+#                :dep_pre_record_samplecount,
+#                
+#                :bwf_description, :bwf_originator, :bwf_originator_reference, :bwf_origination_date,
+#                :bwf_origination_time, :bwf_time_reference, :bwf_version, :bwf_umid, :bwf_reserved, :bwf_coding_history,
+#                
+#                :user
   
   PACK_FMT = "a*"
   
@@ -275,8 +300,151 @@ class IxmlChunk
   end
   
   def unpack_ixml_data(binary_data)
-    @xml = Document.new(binary_data.unpack(PACK_FMT))
-    puts @xml
+    @raw_xml = Document.new(binary_data.unpack(PACK_FMT)[0])
+    #read_xml_values
+  end
+  
+  def read_xml_values #not in use, looking for a better way
+    bwfxml = @raw_xml.elements["BWFXML"]
+    
+    @ixml_version = bwfxml.elements["IXML_VERSION"].text
+    @project = bwfxml.elements["PROJECT"].text
+    @scene = bwfxml.elements["SCENE"].text
+    @take = bwfxml.elements["TAKE"].text
+    @tape = bwfxml.elements["TAPE"].text
+    @circled = bwfxml.elements["CIRCLED"].text
+    @file_uid = bwfxml.elements["FILE_UID"].text
+    @ubits = bwfxml.elements["UBITS"].text
+    @note = bwfxml.elements["NOTE"].text
+    
+    @speed_note = bwfxml.elements["SPEED"].elements["NOTE"].text
+    @speed_master = bwfxml.elements["SPEED"].elements["MASTER_SPEED"].text
+    @speed_current = bwfxml.elements["SPEED"].elements["CURRENT_SPEED"].text
+    @speed_timecode_rate = bwfxml.elements["SPEED"].elements["TIMECODE_RATE"].text
+    @speed_timecode_flag = bwfxml.elements["SPEED"].elements["TIMECODE_FLAG"].text
+    
+    @history_original_filename = bwfxml.elements["HISTORY"].elements["ORIGINAL_FILENAME"].text
+    @history_parent_filename = bwfxml.elements["HISTORY"].elements["PARENT_FILENAME"].text
+    @history_parent_uid = bwfxml.elements["HISTORY"].elements["PARENT_UID"].text
+    
+    @fileset_total_files = bwfxml.elements["FILE_SET"].elements["TOTAL_FILES"].text
+    @fileset_family_uid = bwfxml.elements["FILE_SET"].elements["FAMILY_UID"].text
+    @fileset_family_name = bwfxml.elements["FILE_SET"].elements["FAMILY_NAME"].text
+    @fileset_index = bwfxml.elements["FILE_SET"].elements["FILE_SET_INDEX"].text
+    
+    @tracklist_count, @tracklist_tracks = read_tracklist
+    
+    @bwf_description = bwfxml.elements["BEXT"].elements["BWF_DESCRIPTION"].text
+    @bwf_originator = bwfxml.elements["BEXT"].elements["BWF_ORIGINATOR"].text
+    @bwf_originator_reference = bwfxml.elements["BEXT"].elements["BWF_ORIGINATOR_REFERENCE"].text
+    @bwf_origination_date = bwfxml.elements["BEXT"].elements["BWF_ORIGINATION_DATE"].text
+    @bwf_origination_time = bwfxml.elements["BEXT"].elements["BWF_ORIGINATION_TIME"].text
+    @bwf_time_reference = bwfxml.elements["BEXT"].elements["BWF_TIME_REFERENCE_HIGH"].text + bwfxml.elements["BEXT"].elements["BWF_TIME_REFERENCE_LOW"].text
+    @bwf_version = bwfxml.elements["BEXT"].elements["BWF_VERSION"].text
+    @bwf_umid = bwfxml.elements["BEXT"].elements["BWF_UMID"].text
+    @bwf_reserved = bwfxml.elements["BEXT"].elements["BWF_RESERVED"].text
+    @bwf_coding_history = bwfxml.elements["BEXT"].elements["BWF_CODING_HISTORY"].text
+    
+    @user = bwfxml.elements["USER"].text
+    
+    #iXML 1.52
+    if @ixml_version >= "1.52"
+      @no_good = bwfxml.elements["NO_GOOD"].text
+      @false_start = bwfxml.elements["FALSE_START"].text
+      @wild_track = bwfxml.elements["WILD_TRACK"].text
+      
+    #iXML 1.5
+    elsif @ixml_version >= "1.5"
+      #iXML Readers should ignore this information and instead take the data from the official fmt and bext chunks in the file
+      #Generic utilities changing file data might change the fmt or bxt chunk but not update the iXML SPEED tag, and for EBU officially specified BWF data like timestamp, the EBU data takes precedence (unlike the unofficial informal bext metadata which is superceded by iXML)
+      @speed_file_sample_rate = bwfxml.elements["SPEED"].elements["FILE_SAMPLE_RATE"].text
+      @speed_bit_depth = bwfxml.elements["SPEED"].elements["AUDIO_BIT_DEPTH"].text
+      @speed_digitizer_sample_rate = bwfxml.elements["SPEED"].elements["DIGITIZER_SAMPLE_RATE"].text
+      @speed_timestamp_samples_since_midnight = bwfxml.elements["SPEED"].elements["TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_HI"].text + bwfxml.elements["SPEED"].elements["TIMESTAMP_SAMPLES_SINCE_MIDNIGHT_HI"].text
+      @speed_timestamp_sample_rate = bwfxml.elements["SPEED"].elements["TIMESTAMP_SAMPLE_RATE"].text
+      
+    #iXML 1.4
+    elsif @ixml_version >= "1.4"
+      @sync_point_count, @sync_points = read_sync_points
+      
+    #iXML 1.3
+    elsif @ixml_version == "1.3"
+      @dep_pre_record_samplecount = read_pre_record_samplecount
+    end
+  end
+  
+  def write_xml_values #not in use, incomplete
+    bwfxml = @raw_xml.elements["BWFXML"]
+    
+    @ixml_version
+    @project
+    @scene
+    @take
+    @tape
+    @circled
+    @no_good
+    @false_start
+    @wild_track
+    @file_uid
+    @ubits
+    @note
+    
+    @sync_point_count
+    @sync_points
+    
+    @speed_note
+    @speed_master
+    @speed_current
+    @speed_timecode_rate
+    @speed_timecode_flag
+    @speed_file_sample_rate
+    @speed_bit_depth
+    @speed_digitizer_sample_rate
+    @speed_timestamp_samples_since_midnight
+    @speed_timestamp_sample_rate
+    
+    @history_original_filename
+    @history_parent_filename
+    @history_parent_uid
+    
+    @fileset_total_files
+    @fileset_family_uid
+    @fileset_family_name
+    @fileset_index
+    
+    @tracklist_count
+    @tracklist_tracks
+    
+    @dep_pre_record_samplecount
+    
+    @bwf_description
+    @bwf_originator
+    @bwf_originator_reference
+    @bwf_origination_date
+    @bwf_origination_time
+    @bwf_time_reference
+    @bwf_version
+    @bwf_umid
+    @bwf_reserved
+    @bwf_coding_history
+    
+    @user
+  end
+  
+  def read_sync_points
+    #TODO
+  end
+  
+  def read_tracklist
+    #TODO
+  end
+  
+  def read_pre_record_samplecount
+    #TODO
+  end
+  
+  def translate_frame_rates(frame_rate)
+    #TODO
   end
 end
 
