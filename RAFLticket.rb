@@ -22,6 +22,7 @@ def process(path)
   outputfile <<       [
                       "File Name: #{Pathname.new(path).basename}",
                       "Length: #{Pathname.new(path).size} bytes",
+                      "Duration: #{inputfile.duration} seconds",
                       "Chunks found: #{inputfile.found_chunks.join(', ')}",
                       "Num Channels: #{inputfile.format.num_channels}",
                       "Bit Depth: #{inputfile.format.bit_depth}",
