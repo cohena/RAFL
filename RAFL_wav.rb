@@ -23,7 +23,7 @@ class RiffFile
   HEADER_PACK_FORMAT = "A4V"
   AUDIO_PACK_FORMAT_16 = "s*"
   
-  attr_accessor :format, :bext_meta, :ixml_meta, :raw_audio_data
+  attr_accessor :format, :found_chunks, :bext_meta, :ixml_meta, :raw_audio_data
   
   def initialize(file, mode)
     @file = File.open(file, mode)
@@ -371,64 +371,6 @@ class IxmlChunk
     elsif @ixml_version == "1.3"
       @dep_pre_record_samplecount = read_pre_record_samplecount
     end
-  end
-  
-  def write_xml_values #not in use, incomplete
-    bwfxml = @raw_xml.elements["BWFXML"]
-    
-    @ixml_version
-    @project
-    @scene
-    @take
-    @tape
-    @circled
-    @no_good
-    @false_start
-    @wild_track
-    @file_uid
-    @ubits
-    @note
-    
-    @sync_point_count
-    @sync_points
-    
-    @speed_note
-    @speed_master
-    @speed_current
-    @speed_timecode_rate
-    @speed_timecode_flag
-    @speed_file_sample_rate
-    @speed_bit_depth
-    @speed_digitizer_sample_rate
-    @speed_timestamp_samples_since_midnight
-    @speed_timestamp_sample_rate
-    
-    @history_original_filename
-    @history_parent_filename
-    @history_parent_uid
-    
-    @fileset_total_files
-    @fileset_family_uid
-    @fileset_family_name
-    @fileset_index
-    
-    @tracklist_count
-    @tracklist_tracks
-    
-    @dep_pre_record_samplecount
-    
-    @bwf_description
-    @bwf_originator
-    @bwf_originator_reference
-    @bwf_origination_date
-    @bwf_origination_time
-    @bwf_time_reference
-    @bwf_version
-    @bwf_umid
-    @bwf_reserved
-    @bwf_coding_history
-    
-    @user
   end
   
   def read_sync_points
